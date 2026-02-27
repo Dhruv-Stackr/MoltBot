@@ -1292,6 +1292,8 @@ async def startup_event():
     clawdbot_cmd = get_clawdbot_command()
     if clawdbot_cmd:
         logger.info(f"Moltbot dependencies ready: {clawdbot_cmd}")
+        # Set clawdbot command for UniversalProcessManager (needed for Railway)
+        UniversalProcessManager.set_clawdbot_command(clawdbot_cmd)
     else:
         logger.info("Moltbot dependencies not found, will install on first use")
 

@@ -37,6 +37,7 @@ Deploy as **TWO separate services** in Railway:
    MONGO_URL=<your-mongodb-url>
    DB_NAME=moltbot
    LLM_KEY=sk-emergent-e18C93144D2577f7cF
+   EMERGENT_BASE_URL=https://integrations.emergentagent.com/llm
    CORS_ORIGINS=*
    ```
 5. Deploy ✅

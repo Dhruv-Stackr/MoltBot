@@ -270,9 +270,10 @@ async def create_session(request: SessionRequest, response: Response):
             )
 
         # Check if user exists
-        existing_user = await db.users.find_one({"email": email}, {"_id": 0})
-
+        existing_user = await db.users.find_one({"email": email})
+        
         if existing_user:
+            existing_user.pop('_nocodb_id', None)
             user_id = existing_user["user_id"]
             # Update user info
             await db.users.update_one(
@@ -313,7 +314,9 @@ async def create_session(request: SessionRequest, response: Response):
         )
 
         # Get user data
-        user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+        user_doc = await db.users.find_one({"user_id": user_id})
+        if user_doc:
+            user_doc.pop('_nocodb_id', None)
 
         return {
             "ok": True,

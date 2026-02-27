@@ -1,7 +1,10 @@
+# Add Node.js to the default Python environment
 [phases.setup]
 nixPkgs = ['nodejs_22']
 
+# Run our clawdbot installer after Python dependencies are installed
 [phases.install]
+dependsOn = ['setup']
 cmds = ['bash install_railway.sh']
 
 [start]

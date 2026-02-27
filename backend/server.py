@@ -118,16 +118,20 @@ SESSION_EXPIRY_DAYS = 7
 
 async def get_instance_owner() -> Optional[dict]:
     """Get the instance owner from database. Returns None if not locked yet."""
-    doc = await db.instance_config.find_one({"_id": "instance_owner"})
+    doc = await db.instance_config.find_one({"record_id": "instance_owner"})
+    if doc:
+        doc.pop('_nocodb_id', None)  # Remove internal NocoDB ID
     return doc
 
 
 async def set_instance_owner(user: User) -> None:
     """Lock the instance to a specific user. Only succeeds if not already locked."""
     await db.instance_config.update_one(
-        {"_id": "instance_owner"},
+        {"record_id": "instance_owner"},
         {
             "$setOnInsert": {
+                "_id": "instance_owner",
+                "record_id": "instance_owner",
                 "user_id": user.user_id,
                 "email": user.email,
                 "name": user.name,

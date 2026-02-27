@@ -232,6 +232,12 @@ async def get_instance_status():
     return {"locked": False}
 
 
+@api_router.options("/auth/session")
+async def options_session():
+    """Handle CORS preflight for session endpoint"""
+    return Response(status_code=200)
+
+
 @api_router.post("/auth/session")
 async def create_session(req: Request, response: Response):
     """
@@ -239,10 +245,6 @@ async def create_session(req: Request, response: Response):
     Creates user if not exists, creates session, sets cookie.
     Blocks non-owners if instance is locked.
     """
-    # Handle OPTIONS preflight (shouldn't reach here due to CORS middleware, but just in case)
-    if req.method == "OPTIONS":
-        return Response(status_code=200)
-    
     # Parse request body
     try:
         body = await req.json()

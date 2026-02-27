@@ -72,18 +72,22 @@
    - Settings tab → Root Directory → Enter: `frontend`
    - Service will redeploy automatically
 
-3. **Add Environment Variables**
+3. **Verify Node.js Version**
+   - Check build logs for: `setup | nodejs_22, yarn`
+   - If it shows nodejs_18, add environment variable: `NIXPACKS_PKGS=nodejs_22`
+
+4. **Add Environment Variables**
    - Settings tab → Variables tab → Add variable:
    ```
    REACT_APP_BACKEND_URL=<paste-backend-url-from-step-2>
    ```
    Example: `REACT_APP_BACKEND_URL=https://moltbot-backend-production.up.railway.app`
 
-4. **Get Frontend URL**
+5. **Get Frontend URL**
    - Settings tab → Domains
    - Copy the generated domain (e.g., `https://moltbot-frontend-production.up.railway.app`)
 
-5. **Verify Deployment**
+6. **Verify Deployment**
    - Check Deployments tab for success status
    - Open frontend URL in browser
    - Test login and basic functionality

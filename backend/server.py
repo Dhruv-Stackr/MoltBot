@@ -172,13 +172,13 @@ async def get_current_user(request: Request) -> Optional[User]:
         return None
 
     # Look up session in database
-    session_doc = await db.user_sessions.find_one(
-        {"session_token": session_token},
-        {"_id": 0}
-    )
+    session_doc = await db.user_sessions.find_one({"session_token": session_token})
 
     if not session_doc:
         return None
+    
+    # Remove NocoDB internal ID
+    session_doc.pop('_nocodb_id', None)
 
     # Check expiry
     expires_at = session_doc.get("expires_at")
@@ -191,13 +191,13 @@ async def get_current_user(request: Request) -> Optional[User]:
         return None
 
     # Get user
-    user_doc = await db.users.find_one(
-        {"user_id": session_doc["user_id"]},
-        {"_id": 0}
-    )
+    user_doc = await db.users.find_one({"user_id": session_doc["user_id"]})
 
     if not user_doc:
         return None
+    
+    # Remove NocoDB internal ID
+    user_doc.pop('_nocodb_id', None)
 
     return User(**user_doc)
 

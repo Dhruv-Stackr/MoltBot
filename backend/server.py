@@ -732,11 +732,14 @@ async def start_gateway_process(api_key: str, provider: str, owner_user_id: str)
     # Write environment file for supervisor wrapper to load
     write_gateway_env(token=token, api_key=api_key, provider=provider)
 
-    logger.info(f"Starting Moltbot gateway via supervisor on port {MOLTBOT_PORT}...")
+    # Set clawdbot command for Railway process manager
+    UniversalProcessManager.set_clawdbot_command(clawdbot_cmd)
 
-    # Start via supervisor (will auto-restart on crash, survives backend restarts)
+    logger.info(f"Starting Moltbot gateway on port {MOLTBOT_PORT}...")
+
+    # Start via process manager (supervisor on Emergent, direct process on Railway)
     if not UniversalProcessManager.start():
-        raise HTTPException(status_code=500, detail="Failed to start gateway via supervisor")
+        raise HTTPException(status_code=500, detail="Failed to start gateway")
 
     # Update in-memory state
     gateway_state["token"] = token

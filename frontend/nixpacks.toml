@@ -8,4 +8,4 @@ cmds = ['yarn install --frozen-lockfile']
 cmds = ['yarn build']
 
 [start]
-cmd = 'npx serve -s build -l $PORT'
+cmd = 'npx serve -s build -p $PORT'

@@ -237,8 +237,19 @@ class NocoDBClient:
             title_data = self._serialize_record(collection, updated_doc)
             nocodb_record = {'Title': title_data}
             
-            await self._request('PATCH', f'/{nocodb_id}', json_data=nocodb_record)
-            return {"ok": True, "matched": 1, "modified": 1}
+            try:
+                await self._request('PATCH', f'/{nocodb_id}', json_data=nocodb_record)
+                return {"ok": True, "matched": 1, "modified": 1}
+            except httpx.HTTPStatusError as e:
+                # Handle 404 - record was deleted, treat as not found
+                if e.response.status_code == 404:
+                    logger.warning(f"Record {nocodb_id} not found in NocoDB, treating as deleted")
+                    if upsert:
+                        # Create new record instead
+                        doc_to_insert = {k: v for k, v in updated_doc.items()}
+                        return await self.insert_one(collection, doc_to_insert)
+                    return {"ok": False, "matched": 0}
+                raise
             
         except Exception as e:
             logger.error(f"update_one error: {e}")

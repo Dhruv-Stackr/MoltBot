@@ -672,12 +672,12 @@ def create_moltbot_config(token: str = None, api_key: str = None, provider: str 
 
 
 async def start_gateway_process(api_key: str, provider: str, owner_user_id: str):
-    """Start the Moltbot gateway process via supervisor (persistent, survives backend restarts)"""
+    """Start the Moltbot gateway process (persistent, survives backend restarts)"""
     global gateway_state
 
-    # Check if already running via supervisor
+    # Check if already running
     if UniversalProcessManager.status():
-        logger.info("Gateway already running via supervisor, recovering state...")
+        logger.info("Gateway already running, recovering state...")
 
         # Recover token from config
         token = None

@@ -1136,7 +1136,9 @@ async def create_status_check(input: StatusCheckCreate):
 
 @api_router.get("/status", response_model=List[StatusCheck])
 async def get_status_checks():
-    status_checks = await db.status_checks.find({}).to_list(1000)
+    # Need to await find() which is async and returns a cursor
+    cursor = await db.status_checks.find({})
+    status_checks = await cursor.to_list(1000)
 
     for check in status_checks:
         check.pop('_nocodb_id', None)  # Remove NocoDB internal ID

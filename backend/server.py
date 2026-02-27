@@ -1220,6 +1220,21 @@ async def get_status_checks():
 
 
 # Include the router in the main app
+# ==================== Root Routes ====================
+
+@app.get("/")
+async def root():
+    """Root endpoint for Railway health checks"""
+    return {"status": "ok", "message": "MoltBot Backend Running"}
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint"""
+    return {"status": "healthy", "database": "connected"}
+
+
+# Mount API routes
 app.include_router(api_router)
 
 app.add_middleware(

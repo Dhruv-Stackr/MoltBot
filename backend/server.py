@@ -20,9 +20,9 @@ from datetime import datetime, timezone, timedelta
 
 # WhatsApp monitoring
 from whatsapp_monitor import get_whatsapp_status, fix_registered_flag
-# Gateway management (supervisor-based)
+# Gateway management (universal - works on both Emergent and Railway)
 from gateway_config import write_gateway_env, clear_gateway_env
-from supervisor_client import SupervisorClient
+from universal_process_manager import UniversalProcessManager
 # NocoDB client (replaces MongoDB)
 from nocodb_client import NocoDBDatabase
 

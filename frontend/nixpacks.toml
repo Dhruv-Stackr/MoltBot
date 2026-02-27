@@ -1,16 +1,13 @@
-# Nixpacks configuration for Railway
-# Enable yarn via corepack
+# Nixpacks configuration for Railway  
+# Use custom build script
 
 [phases.setup]
 nixPkgs = ["nodejs_22"]
 
 [phases.install]
-cmds = [
-  "corepack enable",
-  "yarn install --frozen-lockfile"
-]
+cmds = ["corepack enable && yarn install --frozen-lockfile"]
 
-[phases.build]  
+[phases.build]
 cmds = ["yarn build"]
 
 [start]

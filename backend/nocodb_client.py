@@ -1,11 +1,13 @@
 """
 NocoDB Client for MoltBot
 Async REST API client to replace MongoDB operations
+Stores all data as JSON in the Title field of NocoDB records
 """
 import httpx
 import os
 import logging
-from typing import Optional, Dict, List, Any
+import json
+from typing import Optional, Dict, List
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -22,6 +24,8 @@ class NocoDBClient:
             'Content-Type': 'application/json',
             'accept': 'application/json'
         }
+        # In-memory cache for faster lookups (collection -> list of records)
+        self._cache = {}
         
     async def _request(self, method: str, endpoint: str = "", json_data: Dict = None, params: Dict = None) -> Dict:
         """Make HTTP request to NocoDB API"""
@@ -49,56 +53,82 @@ class NocoDBClient:
                 logger.error(f"NocoDB request error: {e}")
                 raise
     
+    async def _get_all_records(self) -> List[Dict]:
+        """Fetch all records from NocoDB"""
+        try:
+            result = await self._request('GET', '', params={'limit': 1000})
+            return result.get('list', [])
+        except Exception as e:
+            logger.error(f"Error fetching all records: {e}")
+            return []
+    
+    def _parse_record(self, record: Dict) -> Optional[Dict]:
+        """Parse NocoDB record Title field into Python dict"""
+        try:
+            title = record.get('Title', '{}')
+            if not title:
+                return None
+            
+            # Parse JSON from Title field
+            data = json.loads(title)
+            
+            # Add NocoDB ID for updates/deletes
+            data['_nocodb_id'] = record.get('Id')
+            
+            return data
+        except Exception as e:
+            logger.error(f"Error parsing record: {e}")
+            return None
+    
+    def _serialize_record(self, collection: str, document: Dict) -> str:
+        """Serialize document to JSON string for Title field"""
+        # Add collection type and metadata
+        record = {
+            '_collection': collection,
+            **self._serialize_document(document)
+        }
+        return json.dumps(record)
+    
+    def _serialize_document(self, doc: Dict) -> Dict:
+        """Serialize document (convert datetime to ISO strings)"""
+        serialized = {}
+        for key, value in doc.items():
+            if isinstance(value, datetime):
+                serialized[key] = value.isoformat()
+            else:
+                serialized[key] = value
+        return serialized
+    
     async def find_one(self, collection: str, query: Dict, projection: Dict = None) -> Optional[Dict]:
         """Find a single record matching query (MongoDB-like interface)"""
         try:
-            # Build NocoDB where clause using v2 syntax
-            # Format: (field,operator,value) combined with ~and
-            where_conditions = []
+            # Get all records
+            all_records = await self._get_all_records()
             
-            # Always filter by collection type
-            where_conditions.append(f"(collection_type,eq,{collection})")
-            
-            for key, value in query.items():
-                if key == "_id" or key == "record_id":
-                    # Special handling for ID field
-                    where_conditions.append(f"(record_id,eq,{value})")
-                elif not isinstance(value, dict):
-                    # Simple equality - we'll need to search in record_data
-                    # Since record_data is stored as string, we search the full record list and filter in Python
-                    pass
-            
-            # Build where clause - combine with ~and
-            if len(where_conditions) == 1:
-                where_clause = where_conditions[0]
-            else:
-                where_clause = "~and".join(where_conditions)
-            
-            params = {
-                'where': where_clause,
-                'limit': 100
-            }
-            
-            result = await self._request('GET', '', params=params)
-            records = result.get('list', []) if isinstance(result, dict) else result
-            
-            if not records:
-                return None
-            
-            # Parse and filter records in Python for complex queries
-            for record in records:
+            # Filter by collection and query
+            for record in all_records:
                 parsed = self._parse_record(record)
-                if parsed:
-                    # Check if all query conditions match
-                    matches = True
-                    for key, value in query.items():
-                        if key in ["_id", "record_id"]:
-                            continue  # Already filtered by NocoDB
-                        if parsed.get(key) != value:
+                if not parsed:
+                    continue
+                
+                # Check collection match
+                if parsed.get('_collection') != collection:
+                    continue
+                
+                # Check query match
+                matches = True
+                for key, value in query.items():
+                    if key in ["_id", "record_id"]:
+                        # Check both _id and record_id
+                        if parsed.get('_id') != value and parsed.get('record_id') != value:
                             matches = False
                             break
-                    if matches:
-                        return parsed
+                    elif parsed.get(key) != value:
+                        matches = False
+                        break
+                
+                if matches:
+                    return parsed
             
             return None
             
@@ -111,32 +141,33 @@ class NocoDBClient:
         try:
             query = query or {}
             
-            # Build where clause - just filter by collection type
-            where_clause = f"(collection_type,eq,{collection})"
+            # Get all records
+            all_records = await self._get_all_records()
             
-            params = {
-                'where': where_clause,
-                'limit': limit
-            }
-            
-            result = await self._request('GET', '', params=params)
-            records = result.get('list', []) if isinstance(result, dict) else result
-            
-            # Parse and filter records in Python
-            parsed_records = []
-            for record in records:
+            # Filter by collection and query
+            results = []
+            for record in all_records:
                 parsed = self._parse_record(record)
-                if parsed:
-                    # Apply query filters
-                    matches = True
-                    for key, value in query.items():
-                        if key not in ["_id", "_nocodb_id"] and parsed.get(key) != value:
-                            matches = False
-                            break
-                    if matches:
-                        parsed_records.append(parsed)
+                if not parsed:
+                    continue
+                
+                # Check collection match
+                if parsed.get('_collection') != collection:
+                    continue
+                
+                # Check query match
+                matches = True
+                for key, value in query.items():
+                    if key not in ["_id", "_nocodb_id"] and parsed.get(key) != value:
+                        matches = False
+                        break
+                
+                if matches:
+                    results.append(parsed)
+                    if len(results) >= limit:
+                        break
             
-            return parsed_records
+            return results
             
         except Exception as e:
             logger.error(f"find error: {e}")
@@ -145,22 +176,18 @@ class NocoDBClient:
     async def insert_one(self, collection: str, document: Dict) -> Dict:
         """Insert a single record (MongoDB-like interface)"""
         try:
-            # Generate a unique record_id if not provided
-            record_id = document.get('_id') or document.get('user_id') or document.get('session_token') or str(datetime.now(timezone.utc).timestamp())
-            
-            # Serialize datetime objects
-            serialized_doc = self._serialize_document(document)
+            # Serialize document to JSON string
+            title_data = self._serialize_record(collection, document)
             
             # Create NocoDB record
-            nocodb_record = {
-                'record_id': str(record_id),
-                'collection_type': collection,
-                'record_data': str(serialized_doc),  # Store as JSON string
-                'created_at': datetime.now(timezone.utc).isoformat()
-            }
+            nocodb_record = {'Title': title_data}
             
             result = await self._request('POST', '', json_data=nocodb_record)
-            return {"ok": True, "inserted_id": record_id}
+            
+            # Get the generated ID
+            nocodb_id = result.get('Id')
+            
+            return {"ok": True, "inserted_id": nocodb_id}
             
         except Exception as e:
             logger.error(f"insert_one error: {e}")
@@ -198,8 +225,7 @@ class NocoDBClient:
                 return {"ok": False}
             
             # Apply updates
-            updated_doc = existing.copy()
-            updated_doc.pop('_nocodb_id', None)
+            updated_doc = {k: v for k, v in existing.items() if k not in ['_nocodb_id', '_collection']}
             
             if '$set' in update:
                 updated_doc.update(update['$set'])
@@ -208,11 +234,8 @@ class NocoDBClient:
                 updated_doc.update(update['$setOnInsert'])
             
             # Serialize and update
-            serialized_doc = self._serialize_document(updated_doc)
-            nocodb_record = {
-                'record_data': str(serialized_doc),
-                'updated_at': datetime.now(timezone.utc).isoformat()
-            }
+            title_data = self._serialize_record(collection, updated_doc)
+            nocodb_record = {'Title': title_data}
             
             await self._request('PATCH', f'/{nocodb_id}', json_data=nocodb_record)
             return {"ok": True, "matched": 1, "modified": 1}
@@ -239,48 +262,6 @@ class NocoDBClient:
         except Exception as e:
             logger.error(f"delete_one error: {e}")
             raise
-    
-    def _serialize_document(self, doc: Dict) -> Dict:
-        """Serialize document for storage (convert datetime to ISO strings)"""
-        serialized = {}
-        for key, value in doc.items():
-            if isinstance(value, datetime):
-                serialized[key] = value.isoformat()
-            else:
-                serialized[key] = value
-        return serialized
-    
-    def _parse_record(self, record: Dict) -> Optional[Dict]:
-        """Parse NocoDB record back to MongoDB-like document"""
-        try:
-            if not record:
-                return None
-            
-            # Extract record_data
-            record_data_str = record.get('record_data', '{}')
-            
-            # Parse the stored data
-            import json
-            if isinstance(record_data_str, str):
-                try:
-                    parsed = json.loads(record_data_str.replace("'", '"'))
-                except:
-                    # If it's not valid JSON, try eval (careful!)
-                    try:
-                        parsed = eval(record_data_str)
-                    except:
-                        parsed = {}
-            else:
-                parsed = record_data_str if isinstance(record_data_str, dict) else {}
-            
-            # Store NocoDB ID for updates/deletes
-            parsed['_nocodb_id'] = record.get('Id') or record.get('id')
-            
-            return parsed
-            
-        except Exception as e:
-            logger.error(f"parse_record error: {e}")
-            return None
 
 
 class NocoDBCollection:

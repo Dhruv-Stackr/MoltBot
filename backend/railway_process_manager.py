@@ -62,13 +62,16 @@ class RailwayProcessManager:
                 return True
             else:
                 # Process died, get error output
-                stdout, stderr = cls._process.communicate(timeout=1)
-                logger.error(f"Gateway process died immediately after start")
-                logger.error(f"Exit code: {cls._process.returncode}")
-                if stdout:
-                    logger.error(f"Stdout: {stdout.decode('utf-8', errors='ignore')}")
-                if stderr:
-                    logger.error(f"Stderr: {stderr.decode('utf-8', errors='ignore')}")
+                try:
+                    stdout, stderr = cls._process.communicate(timeout=1)
+                    logger.error(f"Gateway process died immediately after start")
+                    logger.error(f"Exit code: {cls._process.returncode}")
+                    if stdout:
+                        logger.error(f"Stdout: {stdout.decode('utf-8', errors='ignore')[:500]}")
+                    if stderr:
+                        logger.error(f"Stderr: {stderr.decode('utf-8', errors='ignore')[:500]}")
+                except Exception as comm_err:
+                    logger.error(f"Could not read process output: {comm_err}")
                 return False
 
         except Exception as e:

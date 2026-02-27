@@ -676,7 +676,7 @@ async def start_gateway_process(api_key: str, provider: str, owner_user_id: str)
     global gateway_state
 
     # Check if already running via supervisor
-    if SupervisorClient.status():
+    if UniversalProcessManager.status():
         logger.info("Gateway already running via supervisor, recovering state...")
 
         # Recover token from config
@@ -735,7 +735,7 @@ async def start_gateway_process(api_key: str, provider: str, owner_user_id: str)
     logger.info(f"Starting Moltbot gateway via supervisor on port {MOLTBOT_PORT}...")
 
     # Start via supervisor (will auto-restart on crash, survives backend restarts)
-    if not SupervisorClient.start():
+    if not UniversalProcessManager.start():
         raise HTTPException(status_code=500, detail="Failed to start gateway via supervisor")
 
     # Update in-memory state
@@ -779,7 +779,7 @@ async def start_gateway_process(api_key: str, provider: str, owner_user_id: str)
             await asyncio.sleep(1)
 
     # Check supervisor status if not ready
-    if not SupervisorClient.status():
+    if not UniversalProcessManager.status():
         raise HTTPException(status_code=500, detail="Gateway failed to start via supervisor")
 
     raise HTTPException(status_code=500, detail="Gateway did not become ready in time")
@@ -787,7 +787,7 @@ async def start_gateway_process(api_key: str, provider: str, owner_user_id: str)
 
 def check_gateway_running():
     """Check if the gateway process is still running via supervisor"""
-    return SupervisorClient.status()
+    return UniversalProcessManager.status()
 
 
 # ============== Moltbot API Endpoints (Protected) ==============
@@ -900,7 +900,7 @@ async def get_moltbot_status(request: Request):
         is_owner = user and gateway_state["owner_user_id"] == user.user_id
         return OpenClawStatusResponse(
             running=True,
-            pid=SupervisorClient.get_pid(),
+            pid=UniversalProcessManager.get_pid(),
             provider=gateway_state["provider"],
             started_at=gateway_state["started_at"],
             controlUrl="/api/openclaw/ui/",
@@ -937,7 +937,7 @@ async def stop_moltbot(request: Request):
         raise HTTPException(status_code=403, detail="Only the owner can stop OpenClaw")
 
     # Stop via supervisor
-    if not SupervisorClient.stop():
+    if not UniversalProcessManager.stop():
         logger.error("Failed to stop gateway via supervisor")
 
     # Clear the gateway env file
@@ -1283,7 +1283,7 @@ async def startup_event():
     logger.info("Server starting up...")
 
     # Reload supervisor config to pick up any changes
-    SupervisorClient.reload_config()
+    UniversalProcessManager.reload_config()
 
     # Check and install Moltbot dependencies if needed
     clawdbot_cmd = get_clawdbot_command()
@@ -1305,8 +1305,8 @@ async def startup_event():
     logger.info(f"Gateway should_run flag: {should_run}")
 
     # Check if gateway is already running via supervisor
-    if SupervisorClient.status():
-        pid = SupervisorClient.get_pid()
+    if UniversalProcessManager.status():
+        pid = UniversalProcessManager.get_pid()
         logger.info(f"Gateway already running via supervisor (PID: {pid})")
 
         gateway_state["provider"] = config_doc.get("provider", "emergent") if config_doc else "emergent"
@@ -1344,7 +1344,7 @@ async def startup_event():
         write_gateway_env(token=token, provider=config_doc.get("provider", "emergent"))
 
         # Start via supervisor
-        if SupervisorClient.start():
+        if UniversalProcessManager.start():
             logger.info("Gateway auto-started successfully via supervisor")
 
             # Wait briefly for it to be ready

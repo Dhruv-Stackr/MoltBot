@@ -239,6 +239,10 @@ async def create_session(req: Request, response: Response):
     Creates user if not exists, creates session, sets cookie.
     Blocks non-owners if instance is locked.
     """
+    # Handle OPTIONS preflight (shouldn't reach here due to CORS middleware, but just in case)
+    if req.method == "OPTIONS":
+        return Response(status_code=200)
+    
     # Parse request body
     try:
         body = await req.json()

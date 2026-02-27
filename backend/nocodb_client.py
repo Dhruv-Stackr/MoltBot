@@ -52,26 +52,31 @@ class NocoDBClient:
     async def find_one(self, collection: str, query: Dict, projection: Dict = None) -> Optional[Dict]:
         """Find a single record matching query (MongoDB-like interface)"""
         try:
-            # Build NocoDB where clause
+            # Build NocoDB where clause using v3 syntax
+            # Format: (field,operator,value)
             where_conditions = []
-            for key, value in query.items():
-                if key == "_id":
-                    # Special handling for _id field (maps to record_id)
-                    where_conditions.append(f"(record_id,eq,{value})")
-                elif isinstance(value, dict):
-                    # Handle operators like $ne, $gt, etc.
-                    # For now, just handle equality
-                    continue
-                else:
-                    where_conditions.append(f"(record_data,like,%{key}%)")
             
-            # Add collection type filter
+            # Always filter by collection type
             where_conditions.append(f"(collection_type,eq,{collection})")
-            where_clause = f"@and({','.join(where_conditions)})" if where_conditions else f"@(collection_type,eq,{collection})"
+            
+            for key, value in query.items():
+                if key == "_id" or key == "record_id":
+                    # Special handling for ID field
+                    where_conditions.append(f"(record_id,eq,{value})")
+                elif not isinstance(value, dict):
+                    # Simple equality - we'll need to search in record_data
+                    # Since record_data is stored as string, we search the full record list and filter in Python
+                    pass
+            
+            # Build where clause - for multiple conditions, use ~and()
+            if len(where_conditions) == 1:
+                where_clause = where_conditions[0]
+            else:
+                where_clause = "~and(" + ",".join(where_conditions) + ")"
             
             params = {
                 'where': where_clause,
-                'limit': 1
+                'limit': 100
             }
             
             result = await self._request('GET', '', params=params)
@@ -80,9 +85,22 @@ class NocoDBClient:
             if not records:
                 return None
             
-            record = records[0]
-            # Parse the stored data
-            return self._parse_record(record)
+            # Parse and filter records in Python for complex queries
+            for record in records:
+                parsed = self._parse_record(record)
+                if parsed:
+                    # Check if all query conditions match
+                    matches = True
+                    for key, value in query.items():
+                        if key in ["_id", "record_id"]:
+                            continue  # Already filtered by NocoDB
+                        if parsed.get(key) != value:
+                            matches = False
+                            break
+                    if matches:
+                        return parsed
+            
+            return None
             
         except Exception as e:
             logger.error(f"find_one error: {e}")
@@ -93,15 +111,8 @@ class NocoDBClient:
         try:
             query = query or {}
             
-            # Build where clause
-            where_conditions = [f"(collection_type,eq,{collection})"]
-            
-            for key, value in query.items():
-                if key != "_id" and not isinstance(value, dict):
-                    # Simple equality search (store full records in record_data as JSON string)
-                    pass  # Will filter after retrieval
-            
-            where_clause = "@and(" + ",".join(where_conditions) + ")"
+            # Build where clause - just filter by collection type
+            where_clause = f"(collection_type,eq,{collection})"
             
             params = {
                 'where': where_clause,
@@ -111,7 +122,7 @@ class NocoDBClient:
             result = await self._request('GET', '', params=params)
             records = result.get('list', []) if isinstance(result, dict) else result
             
-            # Parse and filter records
+            # Parse and filter records in Python
             parsed_records = []
             for record in records:
                 parsed = self._parse_record(record)
@@ -119,7 +130,7 @@ class NocoDBClient:
                     # Apply query filters
                     matches = True
                     for key, value in query.items():
-                        if key != "_id" and parsed.get(key) != value:
+                        if key not in ["_id", "_nocodb_id"] and parsed.get(key) != value:
                             matches = False
                             break
                     if matches:

@@ -233,18 +233,29 @@ async def get_instance_status():
 
 
 @api_router.post("/auth/session")
-async def create_session(request: SessionRequest, response: Response):
+async def create_session(req: Request, response: Response):
     """
     Exchange session_id from Emergent Auth for a session token.
     Creates user if not exists, creates session, sets cookie.
     Blocks non-owners if instance is locked.
     """
+    # Parse request body
+    try:
+        body = await req.json()
+        session_id = body.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+    except Exception as e:
+        if "JSON" in str(e):
+            raise HTTPException(status_code=400, detail="Invalid JSON body")
+        raise
+    
     try:
         # Call Emergent Auth to get user data
         async with httpx.AsyncClient() as client:
             auth_response = await client.get(
                 EMERGENT_AUTH_URL,
-                headers={"X-Session-ID": request.session_id},
+                headers={"X-Session-ID": session_id},
                 timeout=10.0
             )
 

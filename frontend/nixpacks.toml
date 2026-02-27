@@ -1,14 +1,14 @@
 # Nixpacks configuration for Railway  
-# Use custom build script
+# Using npm (comes with Node.js by default)
 
 [phases.setup]
 nixPkgs = ["nodejs_22"]
 
 [phases.install]
-cmds = ["corepack enable && yarn install --frozen-lockfile"]
+cmds = ["npm install"]
 
 [phases.build]
-cmds = ["yarn build"]
+cmds = ["npm run build"]
 
 [start]
 cmd = "npx serve -s build -p $PORT"

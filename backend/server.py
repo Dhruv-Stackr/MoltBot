@@ -678,9 +678,11 @@ async def start_gateway_process(api_key: str, provider: str, owner_user_id: str)
 
         # Update database
         await db.moltbot_configs.update_one(
-            {"_id": "gateway_config"},
+            {"record_id": "gateway_config"},
             {
                 "$set": {
+                    "_id": "gateway_config",
+                    "record_id": "gateway_config",
                     "should_run": True,
                     "owner_user_id": owner_user_id,
                     "provider": provider,
@@ -734,9 +736,11 @@ async def start_gateway_process(api_key: str, provider: str, owner_user_id: str)
 
                     # Store config in database for persistence (with should_run flag)
                     await db.moltbot_configs.update_one(
-                        {"_id": "gateway_config"},
+                        {"record_id": "gateway_config"},
                         {
                             "$set": {
+                                "_id": "gateway_config",
+                                "record_id": "gateway_config",
                                 "should_run": True,
                                 "owner_user_id": owner_user_id,
                                 "provider": provider,
@@ -848,7 +852,7 @@ async def stop_moltbot(request: Request):
     if not check_gateway_running():
         # Clear should_run flag even if not running
         await db.moltbot_configs.update_one(
-            {"_id": "gateway_config"},
+            {"record_id": "gateway_config"},
             {"$set": {"should_run": False, "updated_at": datetime.now(timezone.utc)}}
         )
         return {"ok": True, "message": "OpenClaw is not running"}
@@ -866,7 +870,7 @@ async def stop_moltbot(request: Request):
 
     # Clear should_run flag in database
     await db.moltbot_configs.update_one(
-        {"_id": "gateway_config"},
+        {"record_id": "gateway_config"},
         {"$set": {"should_run": False, "updated_at": datetime.now(timezone.utc)}}
     )
 

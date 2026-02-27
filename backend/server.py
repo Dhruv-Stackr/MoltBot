@@ -1269,5 +1269,3 @@ async def shutdown_db_client():
     # independently of the backend. It will auto-restart on crash and
     # survive backend restarts.
     logger.info("Backend shutting down - gateway will continue running via supervisor")
-
-    client.close()

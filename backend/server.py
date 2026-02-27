@@ -1198,7 +1198,9 @@ async def startup_event():
     # Check database for persistent gateway config
     config_doc = None
     try:
-        config_doc = await db.moltbot_configs.find_one({"_id": "gateway_config"})
+        config_doc = await db.moltbot_configs.find_one({"record_id": "gateway_config"})
+        if config_doc:
+            config_doc.pop('_nocodb_id', None)
     except Exception as e:
         logger.warning(f"Could not read gateway config from database: {e}")
 

@@ -1,0 +1,9 @@
+# Railway Monorepo Configuration
+# This file tells Railway this is a monorepo with multiple services
+
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "echo 'Please deploy backend and frontend as separate services'"
+restartPolicyType = "never"

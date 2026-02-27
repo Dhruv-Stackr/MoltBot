@@ -1,10 +1,23 @@
-# 🚨 Quick Fix for Railway Deployment Error
+# 🚨 Quick Fix for Railway Deployment Errors
 
-## The Problem
+## Fixed Issues
+
+### ✅ Issue 1: Monorepo Structure
 ```
 ⚠ Script start.sh not found
 ✖ Railpack could not determine how to build the app.
 ```
+**Solution:** Deploy as TWO separate services (see below)
+
+### ✅ Issue 2: emergentintegrations Package
+```
+ERROR: No matching distribution found for emergentintegrations==0.1.0
+```
+**Solution:** Package removed from requirements.txt (not needed - see `RAILWAY_FIX_EMERGENT_INTEGRATIONS.md`)
+
+---
+
+## The Main Problem
 
 Railway is trying to deploy the entire repo as one service, but MoltBot is a **monorepo** with separate backend and frontend.
 

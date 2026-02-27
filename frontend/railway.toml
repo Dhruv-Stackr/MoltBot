@@ -1,0 +1,17 @@
+# Frontend Service Configuration for Railway
+# Place this in /app/frontend/ directory
+
+[start]
+cmd = "yarn build && npx serve -s build -l $PORT"
+
+[build]
+builder = "nixpacks"
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "yarn"]
+
+[phases.install]
+cmds = ["yarn install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["yarn build"]

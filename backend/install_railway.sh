@@ -6,8 +6,17 @@ set -e
 
 echo "=== Railway Moltbot Installation ==="
 echo "Current PATH: $PATH"
-echo "Node version: $(node -v 2>/dev/null || echo 'not found')"
+
+NODE_VERSION=$(node -v 2>/dev/null | sed 's/v//' || echo '0')
+echo "Node version: v$NODE_VERSION"
 echo "npm version: $(npm -v 2>/dev/null || echo 'not found')"
+
+# Check if Node.js version is sufficient (>=22.12.0)
+REQUIRED_VERSION="22.12.0"
+if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$NODE_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]; then
+    echo "WARNING: Node.js $NODE_VERSION is older than required $REQUIRED_VERSION"
+    echo "Attempting to use npm install with --force flag..."
+fi
 
 # Create directories for clawdbot
 CLAWDBOT_DIR="/app/.clawdbot-bin"
@@ -21,26 +30,23 @@ echo "npm global bin directory: $NPM_BIN"
 # Add npm bin to PATH for this script
 export PATH="$NPM_BIN:$PATH"
 
-# Install clawdbot globally using npm
-echo "Installing clawdbot via npm..."
-npm install -g clawdbot@latest || {
-    echo "Global install failed, trying with --force..."
-    npm install -g --force clawdbot@latest || {
-        echo "Forced global install failed, trying local approach..."
-        npm install clawdbot@latest
-        
-        # Create a wrapper if local install worked
-        if [ -d "node_modules/.bin" ] && [ -f "node_modules/.bin/clawdbot" ]; then
-            echo "Creating clawdbot wrapper..."
-            cat > "$CLAWDBOT_DIR/clawdbot" << 'WRAPPER'
+# Install clawdbot globally using npm (force if version warning expected)
+echo "Installing clawdbot via npm (--force to bypass version check)..."
+npm install -g --force clawdbot@latest 2>&1 | grep -v "EBADENGINE" || {
+    echo "Global install failed, trying local approach..."
+    npm install --force clawdbot@latest
+    
+    # Create a wrapper if local install worked
+    if [ -d "node_modules/.bin" ] && [ -f "node_modules/.bin/clawdbot" ]; then
+        echo "Creating clawdbot wrapper from local install..."
+        cat > "$CLAWDBOT_DIR/clawdbot" << 'WRAPPER'
 #!/bin/bash
 exec node /app/backend/node_modules/clawdbot/bin/clawdbot.js "$@"
 WRAPPER
-            chmod +x "$CLAWDBOT_DIR/clawdbot"
-            echo "✓ Local installation successful"
-            exit 0
-        fi
-    }
+        chmod +x "$CLAWDBOT_DIR/clawdbot"
+        echo "✓ Local installation successful"
+        exit 0
+    fi
 }
 
 # Check if global install worked

@@ -52,8 +52,8 @@ class NocoDBClient:
     async def find_one(self, collection: str, query: Dict, projection: Dict = None) -> Optional[Dict]:
         """Find a single record matching query (MongoDB-like interface)"""
         try:
-            # Build NocoDB where clause using v3 syntax
-            # Format: (field,operator,value)
+            # Build NocoDB where clause using v2 syntax
+            # Format: (field,operator,value) combined with ~and
             where_conditions = []
             
             # Always filter by collection type
@@ -68,11 +68,11 @@ class NocoDBClient:
                     # Since record_data is stored as string, we search the full record list and filter in Python
                     pass
             
-            # Build where clause - for multiple conditions, use ~and()
+            # Build where clause - combine with ~and
             if len(where_conditions) == 1:
                 where_clause = where_conditions[0]
             else:
-                where_clause = "~and(" + ",".join(where_conditions) + ")"
+                where_clause = "~and".join(where_conditions)
             
             params = {
                 'where': where_clause,

@@ -379,6 +379,7 @@ async def logout(request: Request, response: Response):
 # Persistent paths for Node.js and clawdbot
 NODE_DIR = "/root/nodejs"
 CLAWDBOT_DIR = "/root/.clawdbot-bin"
+RAILWAY_CLAWDBOT_DIR = "/app/.clawdbot-bin"  # Railway build directory
 CLAWDBOT_WRAPPER = "/root/run_clawdbot.sh"
 
 def get_clawdbot_command():
@@ -386,6 +387,9 @@ def get_clawdbot_command():
     # Try wrapper script first
     if os.path.exists(CLAWDBOT_WRAPPER):
         return CLAWDBOT_WRAPPER
+    # Try Railway build location
+    if os.path.exists(f"{RAILWAY_CLAWDBOT_DIR}/clawdbot"):
+        return f"{RAILWAY_CLAWDBOT_DIR}/clawdbot"
     # Try persistent location
     if os.path.exists(f"{CLAWDBOT_DIR}/clawdbot"):
         return f"{CLAWDBOT_DIR}/clawdbot"

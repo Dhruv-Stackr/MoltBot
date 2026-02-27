@@ -3,7 +3,6 @@ from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import json
@@ -24,14 +23,14 @@ from whatsapp_monitor import get_whatsapp_status, fix_registered_flag
 # Gateway management (supervisor-based)
 from gateway_config import write_gateway_env, clear_gateway_env
 from supervisor_client import SupervisorClient
+# NocoDB client (replaces MongoDB)
+from nocodb_client import NocoDBDatabase
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ.get('DB_NAME', 'moltbot_app')]
+# NocoDB connection (replaces MongoDB)
+db = NocoDBDatabase()
 
 # Create the main app without a prefix
 app = FastAPI()

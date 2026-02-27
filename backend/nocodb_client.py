@@ -256,8 +256,15 @@ class NocoDBClient:
             if not nocodb_id:
                 return {"ok": False}
             
-            await self._request('DELETE', f'/{nocodb_id}')
-            return {"ok": True, "deleted": 1}
+            try:
+                await self._request('DELETE', f'/{nocodb_id}')
+                return {"ok": True, "deleted": 1}
+            except Exception as delete_error:
+                # Handle 404 - record may have been deleted by another process
+                if "404" in str(delete_error):
+                    logger.warning(f"Record {nocodb_id} already deleted (404)")
+                    return {"ok": True, "deleted": 0}
+                raise
             
         except Exception as e:
             logger.error(f"delete_one error: {e}")

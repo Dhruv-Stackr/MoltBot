@@ -1333,34 +1333,37 @@ async def startup_event():
 
     elif should_run and config_doc:
         # Gateway should be running but isn't - auto-start it!
-        logger.info("Gateway should_run=True but not running - auto-starting via supervisor...")
+        logger.info("Gateway should_run=True but not running - attempting auto-start...")
+        
+        try:
+            # Recover token from config file or database
+            token = config_doc.get("token")
+            if not token:
+                try:
+                    with open(CONFIG_FILE, 'r') as f:
+                        config = json.load(f)
+                    token = config.get("gateway", {}).get("auth", {}).get("token")
+                except:
+                    token = generate_token()
 
-        # Recover token from config file or database
-        token = config_doc.get("token")
-        if not token:
-            try:
-                with open(CONFIG_FILE, 'r') as f:
-                    config = json.load(f)
-                token = config.get("gateway", {}).get("auth", {}).get("token")
-            except:
-                token = generate_token()
+            # Write env file for supervisor wrapper
+            write_gateway_env(token=token, provider=config_doc.get("provider", "emergent"))
 
-        # Write env file for supervisor wrapper
-        write_gateway_env(token=token, provider=config_doc.get("provider", "emergent"))
+            # Start via process manager
+            if UniversalProcessManager.start():
+                logger.info("Gateway auto-started successfully")
 
-        # Start via supervisor
-        if UniversalProcessManager.start():
-            logger.info("Gateway auto-started successfully via supervisor")
+                # Wait briefly for it to be ready
+                await asyncio.sleep(3)
 
-            # Wait briefly for it to be ready
-            await asyncio.sleep(3)
-
-            gateway_state["token"] = token
-            gateway_state["provider"] = config_doc.get("provider", "emergent")
-            gateway_state["owner_user_id"] = config_doc.get("owner_user_id")
-            gateway_state["started_at"] = config_doc.get("started_at")
-        else:
-            logger.error("Failed to auto-start gateway via supervisor")
+                gateway_state["token"] = token
+                gateway_state["provider"] = config_doc.get("provider", "emergent")
+                gateway_state["owner_user_id"] = config_doc.get("owner_user_id")
+                gateway_state["started_at"] = config_doc.get("started_at")
+            else:
+                logger.warning("Gateway auto-start failed - will need to be started manually")
+        except Exception as e:
+            logger.warning(f"Gateway auto-start failed with error: {e} - will need to be started manually")
 
     # Start WhatsApp auto-fix background watcher
     whatsapp_watcher_task = asyncio.create_task(whatsapp_auto_fix_watcher())

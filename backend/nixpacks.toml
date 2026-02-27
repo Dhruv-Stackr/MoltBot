@@ -1,6 +1,6 @@
-# Add Node.js 22.12+ to the Python environment (clawdbot requirement)
+# Add latest Node.js to the Python environment
 [phases.setup]
-nixPkgs = ['nodejs-22_x']
+nixPkgs = ['nodejs']
 
 # Install clawdbot after pip installs requirements.txt (Nixpacks auto-handles this)
 [phases.postInstall]

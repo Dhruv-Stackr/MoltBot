@@ -736,10 +736,17 @@ async def start_gateway_process(api_key: str, provider: str, owner_user_id: str)
     UniversalProcessManager.set_clawdbot_command(clawdbot_cmd)
 
     logger.info(f"Starting Moltbot gateway on port {MOLTBOT_PORT}...")
+    logger.info(f"Using clawdbot command: {clawdbot_cmd}")
 
     # Start via process manager (supervisor on Emergent, direct process on Railway)
-    if not UniversalProcessManager.start():
-        raise HTTPException(status_code=500, detail="Failed to start gateway")
+    try:
+        start_result = UniversalProcessManager.start()
+        logger.info(f"Process manager start() returned: {start_result}")
+        if not start_result:
+            raise HTTPException(status_code=500, detail="Process manager failed to start gateway. Check backend logs for details.")
+    except Exception as e:
+        logger.error(f"Exception during gateway start: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start gateway: {str(e)}")
 
     # Update in-memory state
     gateway_state["token"] = token

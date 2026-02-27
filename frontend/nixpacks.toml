@@ -1,0 +1,14 @@
+# Nixpacks configuration for Railway
+# This tells Railway to use Node.js 22
+
+[phases.setup]
+nixPkgs = ["nodejs_22"]
+
+[phases.install]
+cmds = ["npm install -g yarn", "yarn install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["yarn build"]
+
+[start]
+cmd = "npx serve -s build -p $PORT"

@@ -789,11 +789,65 @@ async def start_moltbot(request: OpenClawStartRequest, req: Request):
         raise HTTPException(status_code=400, detail="API key required for anthropic/openai providers")
 
     # Check if Moltbot is already running by another user
-    if check_gateway_running() and gateway_state["owner_user_id"] != user.user_id:
-        raise HTTPException(
-            status_code=403,
-            detail="OpenClaw is already running by another user. Please wait for them to stop it."
-        )
+    if check_gateway_running():
+        current_owner = gateway_state.get("owner_user_id")
+        
+        # If gateway is running without an owner, allow this user to claim it
+        if current_owner is None:
+            logger.info(f"Gateway running without owner, claiming for user: {user.email}")
+            gateway_state["owner_user_id"] = user.user_id
+            gateway_state["provider"] = request.provider
+            gateway_state["started_at"] = datetime.now(timezone.utc).isoformat()
+            
+            # Get token from existing config
+            token = None
+            try:
+                with open(CONFIG_FILE, 'r') as f:
+                    config = json.load(f)
+                token = config.get("gateway", {}).get("auth", {}).get("token")
+            except:
+                pass
+            
+            if not token:
+                token = generate_token()
+            
+            gateway_state["token"] = token
+            
+            # Save to database
+            await db.moltbot_configs.update_one(
+                {"record_id": "gateway_config"},
+                {
+                    "$set": {
+                        "_id": "gateway_config",
+                        "record_id": "gateway_config",
+                        "should_run": True,
+                        "owner_user_id": user.user_id,
+                        "provider": request.provider,
+                        "token": token,
+                        "started_at": gateway_state["started_at"],
+                        "updated_at": datetime.now(timezone.utc)
+                    }
+                },
+                upsert=True
+            )
+            
+            # Lock instance to this user
+            await set_instance_owner(user)
+            logger.info(f"Instance locked to user: {user.email}")
+            
+            return OpenClawStartResponse(
+                ok=True,
+                controlUrl="/api/openclaw/ui/",
+                token=token,
+                message="OpenClaw claimed and ready to use with Emergent provider"
+            )
+        
+        # If gateway is owned by another user, deny access
+        if current_owner != user.user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="OpenClaw is already running by another user. Please wait for them to stop it."
+            )
 
     try:
         token = await start_gateway_process(request.apiKey, request.provider, user.user_id)

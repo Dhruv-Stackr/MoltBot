@@ -61,3 +61,16 @@ class UniversalProcessManager:
         if IS_RAILWAY and cls._clawdbot_cmd:
             return ProcessManager.restart(cls._clawdbot_cmd)
         return ProcessManager.restart()
+    
+    @classmethod
+    def reload_config(cls) -> bool:
+        """
+        Reload configuration.
+        Only relevant for supervisor on Emergent, no-op on Railway.
+        """
+        if IS_RAILWAY:
+            # Railway doesn't need config reload
+            logger.info("Railway environment - skipping config reload")
+            return True
+        # On Emergent, delegate to SupervisorClient
+        return ProcessManager.reload_config()
